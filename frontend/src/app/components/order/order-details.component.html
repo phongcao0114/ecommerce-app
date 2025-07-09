@@ -17,6 +17,7 @@
                 [class.selected]="selectedStatus === status"
                 (click)="onStatusTabClick(status)">
           {{ status }}
+          <span class="status-count-badge">{{ statusCounts[status] }}</span>
         </button>
       }
     </div>

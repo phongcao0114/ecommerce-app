@@ -23,6 +23,7 @@ export class OrderDetailsComponent implements OnInit {
   // Status filter (no SHIPPED)
   statusOptions: string[] = ['ALL', 'PENDING', 'PROCESSING', 'SHIPPING', 'DELIVERED', 'CANCELLED'];
   selectedStatus: string = 'ALL';
+  statusCounts: { [key: string]: number } = {};
 
   constructor(private orderService: OrderService) {}
 
@@ -46,6 +47,7 @@ export class OrderDetailsComponent implements OnInit {
           if (a.status !== 'CANCELLED' && b.status === 'CANCELLED') return -1;
           return b.id - a.id;
         });
+        this.computeStatusCounts();
         this.applyStatusFilter();
         this.loading = false;
       },
@@ -54,6 +56,18 @@ export class OrderDetailsComponent implements OnInit {
         this.loading = false;
       }
     });
+  }
+
+  computeStatusCounts() {
+    const counts: { [key: string]: number } = {};
+    for (const status of this.statusOptions) {
+      if (status === 'ALL') {
+        counts[status] = this.orders.length;
+      } else {
+        counts[status] = this.orders.filter(order => order.status === status).length;
+      }
+    }
+    this.statusCounts = counts;
   }
 
   applyStatusFilter() {
