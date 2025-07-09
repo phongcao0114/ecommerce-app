@@ -164,6 +164,7 @@
 }
 
 .status-tab-btn {
+  position: relative;
   padding: 0.5rem 1.5rem;
   border: none;
   border-radius: 20px;
@@ -179,6 +180,23 @@
 .status-tab-btn:hover {
   background: #1976d2;
   color: #fff;
+}
+
+.status-count-badge {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  background-color: #ff4444;
+  color: white;
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: bold;
+  margin-left: 6px;
 }
 
 .order-filter-bar, .filter-label, .status-filter-select {
