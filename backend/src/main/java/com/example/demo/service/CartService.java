@@ -4,8 +4,10 @@ import com.example.demo.dto.CartItemRequestDTO;
 import com.example.demo.dto.CartItemResponseDTO;
 import com.example.demo.entity.CartItem;
 import com.example.demo.entity.Product;
+import com.example.demo.entity.User;
 import com.example.demo.repository.CartItemRepository;
 import com.example.demo.repository.ProductRepository;
+import com.example.demo.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -22,6 +24,8 @@ public class CartService {
     private CartItemRepository cartItemRepository;
     @Autowired
     private ProductRepository productRepository;
+    @Autowired
+    private UserRepository userRepository;
 
     private void validateStock(Product product, int quantity) {
         if (quantity > product.getStock()) {
@@ -31,9 +35,9 @@ public class CartService {
 
     @Transactional
     public void addItemToCart(CartItemRequestDTO request) {
-        String userEmail = getCurrentUserEmail();
+        User user = getCurrentUser();
         Product product = productRepository.findById(request.getProductId()).orElseThrow();
-        Optional<CartItem> existing = cartItemRepository.findByUserEmailAndProductId(userEmail, product.getId());
+        Optional<CartItem> existing = cartItemRepository.findByUserAndProductId(user, product.getId());
         int requestedQuantity = request.getQuantity();
         int currentQuantity = existing.map(CartItem::getQuantity).orElse(0);
         int totalQuantity = currentQuantity + requestedQuantity;
@@ -44,7 +48,7 @@ public class CartService {
             cartItemRepository.save(item);
         } else {
             CartItem item = new CartItem();
-            item.setUserEmail(userEmail);
+            item.setUser(user);
             item.setProduct(product);
             item.setQuantity(requestedQuantity);
             cartItemRepository.save(item);
@@ -52,15 +56,17 @@ public class CartService {
     }
 
     public List<CartItemResponseDTO> getCartItems() {
-        String userEmail = getCurrentUserEmail();
-        List<CartItem> items = cartItemRepository.findByUserEmail(userEmail);
-        return items.stream().map(this::toDTO).collect(Collectors.toList());
+        User user = getCurrentUser();
+        List<CartItem> items = cartItemRepository.findByUser(user);
+        return items.stream()
+                .<CartItemResponseDTO>map(this::toDTO)
+                .collect(Collectors.toList());
     }
 
     @Transactional
     public void updateCartItem(Long productId, int quantity) {
-        String userEmail = getCurrentUserEmail();
-        CartItem item = cartItemRepository.findByUserEmailAndProductId(userEmail, productId).orElseThrow();
+        User user = getCurrentUser();
+        CartItem item = cartItemRepository.findByUserAndProductId(user, productId).orElseThrow();
         Product product = item.getProduct();
         validateStock(product, quantity);
         item.setQuantity(quantity);
@@ -69,8 +75,8 @@ public class CartService {
 
     @Transactional
     public void updateCartItemByEmailAndProductId(Long productId, int quantity) {
-        String userEmail = getCurrentUserEmail();
-        CartItem item = cartItemRepository.findByUserEmailAndProductId(userEmail, productId).orElseThrow();
+        User user = getCurrentUser();
+        CartItem item = cartItemRepository.findByUserAndProductId(user, productId).orElseThrow();
         Product product = item.getProduct();
         validateStock(product, quantity);
         item.setQuantity(quantity);
@@ -79,16 +85,16 @@ public class CartService {
 
     @Transactional
     public void removeCartItem(Long productId) {
-        String userEmail = getCurrentUserEmail();
+        User user = getCurrentUser();
         // Check if the product exists before attempting to delete from cart
         productRepository.findById(productId).orElseThrow(() -> new IllegalArgumentException("Product not found."));
-        cartItemRepository.deleteByUserEmailAndProductId(userEmail, productId);
+        cartItemRepository.deleteByUserAndProductId(user, productId);
     }
 
     @Transactional
     public void removeAllCartItemsForCurrentUser() {
-        String userEmail = getCurrentUserEmail();
-        cartItemRepository.deleteAllByUserEmail(userEmail);
+        User user = getCurrentUser();
+        cartItemRepository.deleteAllByUser(user);
     }
 
     @Transactional
@@ -98,9 +104,10 @@ public class CartService {
         }
     }
 
-    private String getCurrentUserEmail() {
+    private User getCurrentUser() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        return authentication.getName();
+        String userEmail = authentication.getName();
+        return userRepository.findByEmail(userEmail).orElseThrow(() -> new IllegalArgumentException("User not found"));
     }
 
     private CartItemResponseDTO toDTO(CartItem item) {

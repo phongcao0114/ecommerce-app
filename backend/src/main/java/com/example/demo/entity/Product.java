@@ -7,22 +7,28 @@ import java.math.BigDecimal;
 
 @Data
 @Entity
+@Table(name = "product")
 public class Product {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-    @Column(nullable = false, length = 100)
+    
+    @Column(columnDefinition = "TEXT")
+    private String description;
+    
+    @Column(name = "image_url", length = 500)
+    private String imageUrl;
+    
+    @Column(nullable = false, length = 200)
     private String name;
+    
     @Column(nullable = false, precision = 10, scale = 2)
     private BigDecimal price;
+    
     @Column(nullable = false)
     private Integer stock;
-    @Column(columnDefinition = "NVARCHAR(MAX)")
-    private String description;
-    @Column(name = "image_url", length = 255)
-    private String imageUrl;
-
+    
     @ManyToOne
-    @JoinColumn(name = "category_id", nullable = false)
+    @JoinColumn(name = "category_id")
     private Category category;
 }
