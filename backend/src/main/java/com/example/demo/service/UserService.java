@@ -18,7 +18,7 @@ public class UserService {
     public UserProfileDTO getUserProfile(String email) {
         User user = userRepository.findByEmail(email).orElseThrow();
         UserProfileDTO dto = new UserProfileDTO();
-        dto.setId(user.getId().longValue());
+        dto.setId(user.getId());
         dto.setEmail(user.getEmail());
         dto.setName(user.getName());
         dto.setPhone(user.getPhone());
@@ -37,7 +37,7 @@ public class UserService {
     public List<UserProfileDTO> getAllUsers() {
         return userRepository.findAll().stream().map(user -> {
             UserProfileDTO dto = new UserProfileDTO();
-            dto.setId(user.getId().longValue());
+            dto.setId(user.getId());
             dto.setEmail(user.getEmail());
             dto.setName(user.getName());
             dto.setPhone(user.getPhone());
@@ -47,9 +47,9 @@ public class UserService {
     }
 
     public UserProfileDTO getUserById(Long id) {
-        User user = userRepository.findById(id.intValue()).orElseThrow(() -> new IllegalArgumentException("User not found"));
+        User user = userRepository.findById(id).orElseThrow(() -> new IllegalArgumentException("User not found"));
         UserProfileDTO dto = new UserProfileDTO();
-        dto.setId(user.getId().longValue());
+        dto.setId(user.getId());
         dto.setEmail(user.getEmail());
         dto.setName(user.getName());
         dto.setPhone(user.getPhone());
@@ -58,7 +58,7 @@ public class UserService {
     }
 
     public UserProfileDTO updateUserByAdmin(Long id, UserProfileDTO updateDTO) {
-        User user = userRepository.findById(id.intValue()).orElseThrow(() -> new IllegalArgumentException("User not found"));
+        User user = userRepository.findById(id).orElseThrow(() -> new IllegalArgumentException("User not found"));
         user.setName(updateDTO.getName());
         user.setPhone(updateDTO.getPhone());
         user.setRole(updateDTO.getRole());
@@ -67,7 +67,7 @@ public class UserService {
     }
 
     public void deleteUser(Long id) {
-        User user = userRepository.findById(id.intValue()).orElseThrow(() -> new IllegalArgumentException("User not found"));
+        User user = userRepository.findById(id).orElseThrow(() -> new IllegalArgumentException("User not found"));
         userRepository.delete(user);
     }
 }

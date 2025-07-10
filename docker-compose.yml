@@ -5,47 +5,19 @@
 # This configuration orchestrates the following services:
 #   - backend: Spring Boot REST API
 #   - frontend: Angular SPA
-#   - db: Microsoft SQL Server 2022 (with SSL and persistent storage)
+#   - db: MySQL 8.0 (with persistent storage)
 #
 # Usage:
 #   docker-compose up --build
 #
 # Initialization Process:
-#   - SQL Server (db) starts and exposes port 1433.
+#   - MySQL (db) starts and exposes port 3306.
 #   - The init-db service runs a two-step initialization:
-#       1. Runs create-db.sql against the master database to create 'ecommerce_app' if it does not exist.
+#       1. Runs create-db.sql to create 'ecommerce_app' if it does not exist.
 #       2. Waits for 'ecommerce_app' to be available.
-#       3. Runs init-db.sql against 'ecommerce_app' to create tables and insert initial data (admin user, category, products).
+#       3. Runs init-db.sql against 'ecommerce_app' to create tables and insert initial data.
 #   - The backend service depends on both db and init-db, ensuring it only starts after the database and all initial data are ready.
 #   - The frontend depends on the backend.
-#
-# Service Details:
-#   backend:
-#     - Built from ./backend (Dockerfile required)
-#     - Exposes port 8080
-#     - Persists uploaded files to ./backend/uploads
-#     - Depends on db
-#   frontend:
-#     - Built from ./frontend/ecommerce-frontend (Dockerfile required)
-#     - Exposes port 4200
-#     - Depends on backend
-#   db:
-#     - Runs Microsoft SQL Server 2022
-#     - Exposes port 1433 (default SQL Server port)
-#     - SSL enabled (certs in sqlserver-ssl volume)
-#     - Persists all database data in sqlserver-data volume
-#     - Environment variables configure admin password, agent, HADR, and SSL
-#
-# Volumes:
-#   sqlserver-ssl: Stores SQL Server SSL certificates
-#   sqlserver-data: Stores SQL Server database data (persistent)
-#
-# Notes:
-#   - Ensure Dockerfiles exist for both backend and frontend.
-#   - The backend's datasource URL should use 'db' as the host (not localhost).
-#   - The SQL Server 'ecommerce' database must exist or be created on startup.
-#   - To persist data, do not remove named volumes when bringing down the stack.
-#   - To re-initialize the database (and rerun the init scripts), use 'docker compose down -v' to remove all data.
 #
 version: '3.8'
 
@@ -65,19 +37,7 @@ services:
       - db
       - init-db
 
-  #  # Frontend Angular app
-  #  frontend:
-  #    build:
-  #      context: ./ecommerce-frontend
-  #      dockerfile: Dockerfile
-  #    ports:
-  #      - "4200:80"
-  #    depends_on:
-  #      - backend
-  #    restart: unless-stopped
-  #    container_name: ecommerce_frontend
-
-  # Frontend2 Angular app (from ./frontend)
+  # Frontend Angular app
   frontend:
     build:
       context: ./frontend
@@ -89,56 +49,54 @@ services:
     restart: unless-stopped
     container_name: ecommerce_frontend
 
-  # Microsoft SQL Server database
+  # MySQL database
   db:
-    image: mcr.microsoft.com/mssql/server:2022-latest
-    container_name: sqlssl_db
+    image: mysql:8.0
+    container_name: mysql_db
     environment:
-      - ACCEPT_EULA=Y
-      - SA_PASSWORD=YourStrong!Passw0rd
-      - MSSQL_ENABLE_HADR=1
-      - MSSQL_AGENT_ENABLED=true
-      - MSSQL_SSL_CERT=/certs/sql.crt
-      - MSSQL_SSL_KEY=/certs/sql.key
+      - MYSQL_ROOT_PASSWORD=YourStrong!Passw0rd
+      - MYSQL_DATABASE=ecommerce_app
+      - MYSQL_USER=ecommerce_user
+      - MYSQL_PASSWORD=ecommerce_pass
     ports:
-      - "1433:1433"
+      - "3306:3306"
     volumes:
-      - sqlserver-ssl:/certs
-      - sqlserver-data:/var/opt/mssql
-      - ./backend/db-init/create-db.sql:/docker-entrypoint-initdb.d/create-db.sql:ro
+      - mysql-data:/var/lib/mysql
+      - ./backend/db-init/create-db.sql:/docker-entrypoint-initdb.d/01-create-db.sql:ro
+      - ./backend/db-init/init-db.sql:/docker-entrypoint-initdb.d/02-init-db.sql:ro
+    command: --default-authentication-plugin=mysql_native_password
+    restart: unless-stopped
 
   # Database initialization service
   init-db:
-    image: mcr.microsoft.com/mssql-tools
+    image: mysql:8.0
     depends_on:
       - db
     entrypoint: [ ]
     command: >
       sh -c '
-        echo "[INIT-DB] Waiting for SQL Server to be available...";
+        echo "[INIT-DB] Waiting for MySQL to be available...";
         for i in $$(seq 1 30); do
-          /opt/mssql-tools/bin/sqlcmd -S db -U sa -P YourStrong!Passw0rd -Q "SELECT 1" && break
-          echo "[INIT-DB] SQL Server not ready, waiting... ($$i)";
+          mysql -h db -u root -pYourStrong!Passw0rd -e "SELECT 1" && break
+          echo "[INIT-DB] MySQL not ready, waiting... ($$i)";
           sleep 2;
         done;
         echo "[INIT-DB] Creating database...";
-        /opt/mssql-tools/bin/sqlcmd -S db -U sa -P YourStrong!Passw0rd -d master -i /init/create-db.sql;
+        mysql -h db -u root -pYourStrong!Passw0rd -e "CREATE DATABASE IF NOT EXISTS ecommerce_app;";
         echo "[INIT-DB] Waiting for ecommerce_app to be available...";
         for i in $$(seq 1 30); do
-          /opt/mssql-tools/bin/sqlcmd -S db -U sa -P YourStrong!Passw0rd -d ecommerce_app -Q "SELECT 1" && break
+          mysql -h db -u root -pYourStrong!Passw0rd -D ecommerce_app -e "SELECT 1" && break
           echo "[INIT-DB] ecommerce_app not ready, waiting... ($$i)";
           sleep 2;
         done;
         echo "[INIT-DB] Running init-db.sql...";
-        /opt/mssql-tools/bin/sqlcmd -S db -U sa -P YourStrong!Passw0rd -d ecommerce_app -i /init/init-db.sql;
+        mysql -h db -u root -pYourStrong!Passw0rd ecommerce_app < /init/init-db.sql;
         echo "[INIT-DB] Done.";
       '
     volumes:
-      - ./backend/db-init/create-db.sql:/init/create-db.sql:ro
       - ./backend/db-init/init-db.sql:/init/init-db.sql:ro
     restart: "no"
 
 # Volumes for persistent data
 volumes:
-  sqlserver-ssl:
-  sqlserver-data:
+  mysql-data:

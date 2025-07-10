@@ -1,5 +1,4 @@
-IF NOT EXISTS (SELECT name FROM sys.databases WHERE name = N'ecommerce_app')
-BEGIN
-    CREATE DATABASE [ecommerce_app];
-END
-GO
+-- MySQL-compatible i
+-- Create database if it doesn't exist
+CREATE DATABASE IF NOT EXISTS ecommerce_app;
+USE ecommerce_app;
