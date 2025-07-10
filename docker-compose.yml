@@ -11,12 +11,8 @@
 #   docker-compose up --build
 #
 # Initialization Process:
-#   - MySQL (db) starts and exposes port 3306.
-#   - The init-db service runs a two-step initialization:
-#       1. Runs create-db.sql to create 'ecommerce_app' if it does not exist.
-#       2. Waits for 'ecommerce_app' to be available.
-#       3. Runs init-db.sql against 'ecommerce_app' to create tables and insert initial data.
-#   - The backend service depends on both db and init-db, ensuring it only starts after the database and all initial data are ready.
+#   - MySQL (db) starts and automatically runs scripts in /docker-entrypoint-initdb.d/
+#   - The backend service depends on db, ensuring it only starts after the database is ready.
 #   - The frontend depends on the backend.
 #
 version: '3.8'
@@ -35,7 +31,6 @@ services:
       - ./backend/uploads:/app/uploads
     depends_on:
       - db
-      - init-db
 
   # Frontend Angular app
   frontend:
@@ -66,36 +61,6 @@ services:
       - ./backend/db-init/init-db.sql:/docker-entrypoint-initdb.d/02-init-db.sql:ro
     command: --default-authentication-plugin=mysql_native_password
     restart: unless-stopped
-
-  # Database initialization service
-  init-db:
-    image: mysql:8.0
-    depends_on:
-      - db
-    entrypoint: [ ]
-    command: >
-      sh -c '
-        echo "[INIT-DB] Waiting for MySQL to be available...";
-        for i in $$(seq 1 30); do
-          mysql -h db -u root -pYourStrong!Passw0rd -e "SELECT 1" && break
-          echo "[INIT-DB] MySQL not ready, waiting... ($$i)";
-          sleep 2;
-        done;
-        echo "[INIT-DB] Creating database...";
-        mysql -h db -u root -pYourStrong!Passw0rd -e "CREATE DATABASE IF NOT EXISTS ecommerce_app;";
-        echo "[INIT-DB] Waiting for ecommerce_app to be available...";
-        for i in $$(seq 1 30); do
-          mysql -h db -u root -pYourStrong!Passw0rd -D ecommerce_app -e "SELECT 1" && break
-          echo "[INIT-DB] ecommerce_app not ready, waiting... ($$i)";
-          sleep 2;
-        done;
-        echo "[INIT-DB] Running init-db.sql...";
-        mysql -h db -u root -pYourStrong!Passw0rd ecommerce_app < /init/init-db.sql;
-        echo "[INIT-DB] Done.";
-      '
-    volumes:
-      - ./backend/db-init/init-db.sql:/init/init-db.sql:ro
-    restart: "no"
 
 # Volumes for persistent data
 volumes:
